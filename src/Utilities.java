@@ -14,10 +14,8 @@ import java.util.Map;
 
 /**
  * Created by shobhitgarg on 9/19/17.
- * Check to see github changes
  */
 public class Utilities {
-    int x;
     static ArrayList<ArrayList<Integer>> soln = new ArrayList<>();
 
     public static ArrayList<ArrayList<Integer>> findTreeFeatures(GraphDatabaseService databaseService, int size)  {
