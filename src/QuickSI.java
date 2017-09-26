@@ -11,14 +11,15 @@ import java.util.Map;
 public class QuickSI {
     static int max = 0;
     long beta = 0;
-
+    HashSet<String> results = new HashSet<>();
     public QuickSI(GraphDatabaseService databaseServiceSeq, GraphDatabaseService databaseServiceGraph)    {
         boolean ans = false;
         try (Transaction tx = databaseServiceGraph.beginTx())   {
             try (Transaction tx1 = databaseServiceSeq.beginTx())    {
                 beta = Utilities.countNodesInGraph(databaseServiceSeq);
-
-                ans = performQuickSI(databaseServiceSeq, databaseServiceGraph, new HashMap<Long, Long>(), new HashSet<Long>(), 0);
+                HashMap<Long, Long> H = new HashMap<>();
+                HashSet<Long> F = new HashSet<>();
+                ans = performQuickSI(databaseServiceSeq, databaseServiceGraph, H, F, 0);
                 System.out.println("MAX depth reached: " + max);
                 tx1.success();
             }
@@ -28,11 +29,31 @@ public class QuickSI {
     }
 
     public boolean performQuickSI(GraphDatabaseService databaseServiceSeq, GraphDatabaseService databaseServiceGraph, HashMap<Long, Long> H, HashSet<Long> F, int d)    {
-        if(d>beta - 1)
+        if(d>beta - 1) {
+            int max = 0;
+            HashMap<Integer, Long> tempMap = new HashMap<>();
+
+            StringBuilder sb = new StringBuilder("S:" + Utilities.countNodesInGraph(databaseServiceSeq)+":");
+            for(long id1: H.keySet())    {
+                Node n = databaseServiceSeq.getNodeById(id1);
+                int id2 = (int)n.getProperty("idd");
+                tempMap.put(id2, H.get(id1));
+                if(id2>max)
+                    max = id2;
+            }
+            for(int i = 0; i<= max; i++)
+                sb.append(i + ","+tempMap.get(i) + ";");
+            sb.setLength(sb.length() - 1);
+            results.add(sb.toString());
+
             return true;
+
+        }
         if(d>max)
             max = d;
-        Node t = databaseServiceSeq.getNodeById(d);
+        Result result2 = databaseServiceSeq.execute("Match(n) where n.index = " + d + " return n");
+        Map<String, Object> row = result2.next();
+        Node t = (Node) row.get("n");
         HashSet<Node> v = new HashSet<>();
         String labels = Utilities.getLabels(t);
         String query = "" ;
@@ -46,7 +67,7 @@ public class QuickSI {
 
         Result result = databaseServiceGraph.execute(query);
         while (result.hasNext())    {
-            Map<String, Object> row = result.next();
+            row = result.next();
             Node n = (Node)row.get("n");
             if(!F.contains(n.getId()))
                 v.add((Node) row.get("n"));
@@ -70,7 +91,8 @@ public class QuickSI {
 
 
             for (Long edge : edges) {
-                Result result1 = databaseServiceGraph.execute("match(n) --> (n1) where ID(n) = " + vertex.getId() + " and ID(n1) = " + H.get(edge) + " return n");
+                // removing direction because of the extra edge thingy!
+                Result result1 = databaseServiceGraph.execute("match(n) -- (n1) where ID(n) = " + vertex.getId() + " and ID(n1) = " + H.get(edge) + " return n");
                 if(!result1.hasNext())
                     return false;
 

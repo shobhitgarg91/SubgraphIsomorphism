@@ -63,10 +63,11 @@ public class Utilities {
         return (long) row.get("count(n)");
     }
 
-    public static long insertNode(BatchInserter inserter, Node n, Long parent)   {
+    public static long insertNode(BatchInserter inserter, Node n, Long parent, int index)   {
         Map<String, Object> inserterMap = new HashMap<>();
         inserterMap.put("parent", parent);
-        inserterMap.put("idd", n.getId());
+        inserterMap.put("idd", n.getProperty("id"));
+        inserterMap.put("index", index);
         inserterMap.put("degree", n.getDegree(Direction.OUTGOING));
         Iterable<Label> labels = n.getLabels();
         ArrayList<Label> lbSet = new ArrayList<>();

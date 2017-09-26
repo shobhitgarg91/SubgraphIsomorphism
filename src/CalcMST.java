@@ -18,6 +18,7 @@ public class CalcMST {
     HashMap<Integer, Vertex> queryGraphNodes;
     HashMap<Integer, Vertex> queryGraphNodes1;
     ArrayList<Edge> edgeList;
+    static int index = 0;
     ArrayList<Relationship> P = new ArrayList<>();
     ArrayList<Relationship> et = new ArrayList<>();
     HashSet<Relationship> removed = new HashSet<>();
@@ -54,9 +55,9 @@ public class CalcMST {
             // selecting the first edge
             Relationship e = selectFirstEdge1(P);
             et.add(e);
-            map.put((int) e.getStartNode().getId(), Utilities.insertNode(inserter, e.getStartNode(), new Long(-1)));
-            map.put((int) e.getEndNode().getId(), Utilities.insertNode(inserter, e.getEndNode(), map.get((int)e.getStartNode().getId())));
-
+            map.put((int) e.getStartNode().getProperty("id"), Utilities.insertNode(inserter, e.getStartNode(), new Long(-1), index ++));
+            map.put((int) e.getEndNode().getProperty("id"), Utilities.insertNode(inserter, e.getEndNode(), map.get((int)e.getStartNode().getProperty("id")), index ++));
+            inserter.createRelationship(map.get((int)e.getStartNode().getProperty("id")), map.get((int)e.getEndNode().getProperty("id")), RelationshipType.withName("Parent"), null);
             vt.add(e.getStartNode());
             vt.add(e.getEndNode());
             e.delete();
@@ -81,7 +82,9 @@ public class CalcMST {
 
                 e = selectSpanningEdge1(P, vt, databaseServiceQuery);
                 et.add(e);
-                map.put((int) e.getEndNode().getId(), Utilities.insertNode(inserter, e.getEndNode(),map.get((int)e.getStartNode().getId()) ));
+                map.put((int) e.getEndNode().getProperty("id"), Utilities.insertNode(inserter, e.getEndNode(), map.get((int)e.getStartNode().getProperty("id")), index ++));
+                inserter.createRelationship(map.get((int)e.getStartNode().getProperty("id")), map.get((int)e.getEndNode().getProperty("id")), RelationshipType.withName("Parent"), null);
+
                 vt.add(e.getEndNode());
 
                 // checking for edges that are that have both nodes in vt
@@ -123,10 +126,18 @@ public class CalcMST {
         Map<Long, HashSet<Long>> extraEdgeMap = new HashMap<>();
         try (Transaction tx1 = databaseServiceSeq.beginTx()){
             for(Relationship rel: extraEdges)   {
-                long startID = map.get((int) rel.getStartNode().getId());
-                long endID =  map.get((int) rel.getEndNode().getId());
+                long startID = map.get((int) rel.getStartNode().getProperty("id"));
+                long endID =  map.get((int) rel.getEndNode().getProperty("id"));
+
+                // doing this to ensure that there is a vertex available when checking for extra edges in QuickSI algorithm,
+                if(startID<endID)   {
+                    long temp = startID;
+                    startID = endID;
+                    endID = temp;
+                }
             Node startNode = databaseServiceSeq.getNodeById(startID);
             Node endNode = databaseServiceSeq.getNodeById(endID);
+            // keeping the actual node id's in the extraEdge map, as it will help in querying the graph quickly.
             if(extraEdgeMap.containsKey(startNode.getId())) {
                 extraEdgeMap.get(startNode.getId()).add(endNode.getId());
             }
@@ -157,6 +168,80 @@ public class CalcMST {
             System.out.println(e.toString());
         }
         return databaseServiceSeq;
+    }
+
+
+    Relationship selectFirstEdge1(ArrayList<Relationship>P)  {
+        if(P.size() == 1)
+            return P.get(0);
+
+        Relationship ans = P.get(0);
+        for(Relationship e: P)  {
+            if((ans.getStartNode().getDegree(Direction.OUTGOING) + ans.getEndNode().getDegree(Direction.OUTGOING))>(e.getStartNode().getDegree(Direction.OUTGOING) + e.getEndNode().getDegree(Direction.OUTGOING)))
+                ans = e;
+        }
+        return ans;
+    }
+
+    Relationship selectSpanningEdge1(ArrayList<Relationship>P, HashSet<Node> vt, GraphDatabaseService databaseServiceQuery)  {
+        Collections.sort(P, (o1, o2) -> (double)o1.getProperty("Weight") - (double)o2.getProperty("Weight")>0? 1 : (double)o1.getProperty("Weight") - (double)o2.getProperty("Weight") <0 ?-1: 0 );
+        double minWeight = (double)P.get(0).getProperty("Weight");
+        ArrayList<Relationship> tempP = new ArrayList<>();
+        for(Relationship edge: P)   {
+            if((double)edge.getProperty("Weight")>minWeight)
+                break;
+            tempP.add(edge);
+        }
+        P = tempP;
+        if(P.size() == 1)
+            return P.get(0);
+        tempP = new ArrayList<>();
+        ArrayList<Node> tempVt = new ArrayList<>(vt);
+        long maxInducedSubgraphSize = 0;
+        ArrayList<Long> inducedSizes = new ArrayList<>();
+
+
+        HashSet<Long> nodeIDset = new HashSet<>();
+        for (Node n: vt)
+            nodeIDset.add(n.getId());
+
+        for(Relationship rel : P)   {
+            tempVt.add(rel.getEndNode());
+            nodeIDset.add(rel.getEndNode().getId());
+            long currInducedSubgraphSize = 0;
+            for(Node node: tempVt)  {
+                nodeIDset.remove(node.getId());
+                Result result = databaseServiceQuery.execute("match (n) -[r]-> (n1) where ID(n) = " + node.getId() + " and ID(n1) IN " + nodeIDset.toString() + " return count(r)");
+                Map<String, Object> row = result.next();
+                currInducedSubgraphSize += (long)row.get("count(r)");
+                nodeIDset.add(node.getId());
+            }
+            inducedSizes.add(currInducedSubgraphSize);
+
+            if(currInducedSubgraphSize>maxInducedSubgraphSize)
+                maxInducedSubgraphSize = currInducedSubgraphSize;
+            tempVt.remove(tempVt.size() - 1);
+
+        }
+
+        for(int i = 0; i<inducedSizes.size(); i++)  {
+            if(inducedSizes.get(i)== maxInducedSubgraphSize)
+                tempP.add(P.get(i));
+        }
+        P = tempP;
+        if(P.size() == 1)
+            return P.get(0);
+
+        int minDegree = Integer.MAX_VALUE;
+        Relationship e = null;
+        for(Relationship rel: P)    {
+            if(rel.getEndNode().getDegree(Direction.OUTGOING)< minDegree)   {
+                minDegree = rel.getEndNode().getDegree(Direction.OUTGOING);
+                e = rel;
+            }
+        }
+        return e;
+
     }
 
 
@@ -234,102 +319,6 @@ public class CalcMST {
 //
 //    }
 
-    Relationship selectFirstEdge1(ArrayList<Relationship>P)  {
-        if(P.size() == 1)
-            return P.get(0);
-
-        Relationship ans = P.get(0);
-        for(Relationship e: P)  {
-            if((ans.getStartNode().getDegree(Direction.OUTGOING) + ans.getEndNode().getDegree(Direction.OUTGOING))>(e.getStartNode().getDegree(Direction.OUTGOING) + e.getEndNode().getDegree(Direction.OUTGOING)))
-                ans = e;
-        }
-        return ans;
-    }
-
-    Relationship selectSpanningEdge1(ArrayList<Relationship>P, HashSet<Node> vt, GraphDatabaseService databaseServiceQuery)  {
-        Collections.sort(P, (o1, o2) -> (double)o1.getProperty("Weight") - (double)o2.getProperty("Weight")>0? 1 : (double)o1.getProperty("Weight") - (double)o2.getProperty("Weight") <0 ?-1: 0 );
-        double minWeight = (double)P.get(0).getProperty("Weight");
-        ArrayList<Relationship> tempP = new ArrayList<>();
-        for(Relationship edge: P)   {
-            if((double)edge.getProperty("Weight")>minWeight)
-                break;
-            tempP.add(edge);
-        }
-        P = tempP;
-        if(P.size() == 1)
-            return P.get(0);
-        tempP = new ArrayList<>();
-        ArrayList<Node> tempVt = new ArrayList<>(vt);
-        long maxInducedSubgraphSize = 0;
-        ArrayList<Long> inducedSizes = new ArrayList<>();
-
-
-//        for(Relationship rel : P)   {
-//            long currInducedSubgraphSize = 0;
-//            tempVt.add(rel.getEndNode());
-//            for(Node node: tempVt)  {
-//                long id = node.getId();
-//                Result result = databaseServiceQuery.execute("match(n) where n.id = " + id + " return size((n)-->())");
-//                Map<String, Object> row = result.next();
-//                currInducedSubgraphSize += (long) row.get("size((n)-->())");
-//            }
-//            inducedSizes.add(currInducedSubgraphSize);
-//            if(currInducedSubgraphSize>maxInducedSubgraphSize)
-//                maxInducedSubgraphSize = currInducedSubgraphSize;
-//            tempVt.remove(tempVt.size() - 1);
-//        }
-//
-//        for(int i = 0; i<inducedSizes.size(); i++)  {
-//            if(inducedSizes.get(i)== maxInducedSubgraphSize)
-//                tempP.add(P.get(i));
-//        }
-//        P = tempP;
-//        if(P.size() == 1)
-//            return P.get(0);
-//        tempP = new ArrayList<>();
-
-        HashSet<Long> nodeIDset = new HashSet<>();
-        for (Node n: vt)
-            nodeIDset.add(n.getId());
-
-        for(Relationship rel : P)   {
-            tempVt.add(rel.getEndNode());
-            nodeIDset.add(rel.getEndNode().getId());
-            long currInducedSubgraphSize = 0;
-            for(Node node: tempVt)  {
-                nodeIDset.remove(node.getId());
-                Result result = databaseServiceQuery.execute("match (n) -[r]-> (n1) where ID(n) = " + node.getId() + " and ID(n1) IN " + nodeIDset.toString() + " return count(r)");
-                Map<String, Object> row = result.next();
-                currInducedSubgraphSize += (long)row.get("count(r)");
-                nodeIDset.add(node.getId());
-            }
-            inducedSizes.add(currInducedSubgraphSize);
-
-            if(currInducedSubgraphSize>maxInducedSubgraphSize)
-                maxInducedSubgraphSize = currInducedSubgraphSize;
-            tempVt.remove(tempVt.size() - 1);
-
-        }
-
-        for(int i = 0; i<inducedSizes.size(); i++)  {
-            if(inducedSizes.get(i)== maxInducedSubgraphSize)
-                tempP.add(P.get(i));
-        }
-        P = tempP;
-        if(P.size() == 1)
-            return P.get(0);
-
-        int minDegree = Integer.MAX_VALUE;
-        Relationship e = null;
-        for(Relationship rel: P)    {
-            if(rel.getEndNode().getDegree(Direction.OUTGOING)< minDegree)   {
-                minDegree = rel.getEndNode().getDegree(Direction.OUTGOING);
-                e = rel;
-            }
-        }
-        return e;
-
-    }
 
 //    public void calculateMST()   {
 //        ArrayList<Edge>P = new ArrayList<>();
