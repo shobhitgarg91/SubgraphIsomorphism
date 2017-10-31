@@ -21,13 +21,11 @@ public class Test {
         File queryFile = new File("/Users/shobhitgarg/Downloads/Proteins/Proteins/query/backbones_1EMA.8.sub.grf");
         String newDbPath = "/Users/shobhitgarg/Documents/BidirectionalGraphs";
         GraphDatabaseService databaseServiceQuery = Utilities.loadQueryGraph(queryFile, newDbPath);
-        GraphDatabaseFactory []dbFactoryArray = new GraphDatabaseFactory[4];
-        for(int i = 0; i<dbFactoryArray.length; i ++)
-            dbFactoryArray[i] = new GraphDatabaseFactory();
+
         String targetSet []= new String[]{"backbones_1O54.grf", "backbones_1UOW.grf", "backbones_2AXQ.grf", "saccharomyces_cerevisiae_1ZTA.grf"};
         GraphDatabaseService [] databaseService = new GraphDatabaseService[4];
         for(int i = 0; i<databaseService.length; i++)   {
-            databaseService[i]  = dbFactoryArray[i].newEmbeddedDatabase(new File(graphFilePath + targetSet[i]));
+            databaseService[i]  = new GraphDatabaseFactory().newEmbeddedDatabase(new File(graphFilePath + targetSet[i]));
         }
         //GraphDatabaseService databaseService = dbFactory.newEmbeddedDatabase(graphFile);
         Test obj = new Test();
@@ -44,10 +42,10 @@ public class Test {
         avgInnerSupport.calcTotalEdges(databaseService);
         //avgInnerSupport.eliminateEdges(databaseService, 100);
         avgInnerSupport.calculateTotalVertices(databaseService);
-        CalcMST calcMST = new CalcMST(obj.queryGraphNodes, obj.edgeList);
+        CalcMST calcMST = new CalcMST();
         GraphDatabaseService databaseServiceSeq = calcMST.calculateMST1(databaseServiceQuery, newDbPath);
-        QuickSI quickSI = new QuickSI(databaseServiceSeq, databaseService[0]);
-        //calcMST.calculateMST1(databaseServiceQuery);
+        QuickSI quickSI = new QuickSI(databaseServiceSeq, databaseService[1]);
+
         Collections.sort(obj.edgeList, (o1, o2) -> o1.weight - o2.weight>0? 1: o1.weight - o2.weight <0 ? -1: 0);
         System.out.println("Hello");
     }
