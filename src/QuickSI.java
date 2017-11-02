@@ -98,7 +98,7 @@ public class QuickSI {
         Map<String, Object> row = result2.next();
         Node t = (Node) row.get("n");
         HashSet<Node> v = new HashSet<>();
-        String labels = Utilities.getLabels(t);
+        String labels = Utilities.getLabels("n",t);
         String query = "" ;
         if(d == 0)
             query = "match (n) where " + labels + " return n";

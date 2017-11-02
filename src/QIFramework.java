@@ -37,6 +37,10 @@ public class QIFramework {
         //  create a qi sequence
 
         File file1 = new File(tempPath + "feature" + count++);
+        if(count - 1 == 29)
+            System.out.println("Issue 29");
+        if((count -1 ) % 10 == 0)
+            System.out.println("need break");
         BatchInserter inserter = BatchInserters.inserter(file1);
         // for each node in the feature
         int index = 0;
@@ -53,7 +57,13 @@ public class QIFramework {
 
         }
         for (Long edge1 : feature.edges.keySet()) {
-            inserter.createRelationship(nodeMap.get(edge1), nodeMap.get(feature.edges.get(edge1)), RelationshipType.withName(""), null);
+            try {
+                for(Long edge2: feature.edges.get(edge1))
+                    inserter.createRelationship(nodeMap.get(edge1), nodeMap.get(edge2), RelationshipType.withName(""), null);
+            }
+            catch (Exception e) {
+                System.out.println("Exception! + edge: " + edge1 );
+            }
         }
         inserter.shutdown();
 
@@ -64,16 +74,8 @@ public class QIFramework {
         avgInnerSupport.calcInnerSupportVertex(featureService, databaseServices);
         CalcMST calcMST = new CalcMST();
         databaseServiceSeq = calcMST.calculateMST1(featureService, tempPath + "weightedFeature" + (count - 1));
-        if(databaseServiceSeq == null)
-            System.out.println("seq null!");
-        for(int graphID: graphIDs)  {
-
-            QuickSI quickSI = new QuickSI(databaseServiceSeq, databaseServices[graphID]);
-
-            if(quickSI.ans)
-                soln.add(graphID);
-
-        }
+//        if(databaseServiceSeq == null) // need to check this thingy!
+//            return;
 
 
     }
@@ -104,13 +106,19 @@ public class QIFramework {
         else    {
             // if d > 1
             for(Long nodeID: q.labels.keySet()) {
-                if(q.labels.get(nodeID).containsAll(n.labels) && q.edges.get(H.get(pre)) == nodeID && !F.contains(nodeID))
-                    V.add(nodeID);
+                try {
+                    long l1 = H.get(pre);
+                    if (q.labels.get(nodeID).containsAll(n.labels) && ((q.edges.containsKey(l1) && q.edges.get(l1).contains(nodeID))  || q.edges.containsKey(nodeID) && q.edges.get(nodeID).contains(l1)) && !F.contains(nodeID))
+                        V.add(nodeID);
+                }
+                catch (Exception e) {
+                    System.out.println("Exception!");
+                }
 
             }
 
         }
-        pre = n;
+
         if(V.size()==0)
             return;
         for(Long v: V)  {
@@ -123,7 +131,10 @@ public class QIFramework {
             H.put(n, v);
             F.add(v);
             for(FeatureNode child: n.children)  {
+                FeatureNode oldNode = pre;
+                pre = n;
                 prefixQuickSI(child, q, H, F, d + 1);
+                pre = oldNode;
             }
             F.remove(v);
 

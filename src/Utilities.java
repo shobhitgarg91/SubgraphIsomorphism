@@ -19,7 +19,7 @@ public class Utilities {
         GraphDatabaseService databaseService = new GraphDatabaseFactory().newEmbeddedDatabase(new File("/Users/shobhitgarg/Documents/GraphDB5/backbones_1O54.grf"));
         int size = 1;
 
-      //  ArrayList<Feature> findFeatures = Utilities.findFeatures(databaseService, 3, 0);
+        //  ArrayList<Feature> findFeatures = Utilities.findFeatures(databaseService, 3, 0);
         System.out.println("Check");
         // findTreeFeatures(databaseService, 3);
     }
@@ -61,177 +61,418 @@ public class Utilities {
         for(int i = 0; i<databaseServices.length; i++)  {
             HashSet<String> featurePatternSet1= new HashSet<>();
             GraphDatabaseService databaseService = databaseServices[i];
-        try (Transaction tx = databaseService.beginTx()) {
-            if (size == 1) {
-                Result result = databaseService.execute(queries.get(0));
-                while (result.hasNext()) {
-                    Map<String, Object> row = result.next();
-                    String tempLabel = String.valueOf(row.get("(labels(n))"));
-                    tempLabel = tempLabel.substring(1, tempLabel.length() - 1);
-                    if (!featureSoln.containsKey(tempLabel)) {
-                        featurePatternSet1.add(tempLabel);
-                        Result result1 = databaseService.execute("match (n:" + tempLabel + ") return n.id limit 1");
-                        Map<String, Object> row1 = result1.next();
-                        Feature feature = new Feature();
-                        feature.graphIDs.add(i);
-                        feature.nodes.add(Long.parseLong(String.valueOf(row1.get("n.id"))));
-                        // getting all the labels
-                        for (Long nodeID : feature.nodes)
-                            feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
-                        featureSoln.put(tempLabel, feature);
-                    }
-                    else {
-                        featureSoln.get(tempLabel).graphIDs.add(i);
-                    }
-                }
-
-            } else if (size == 2) {
-                Result result = databaseService.execute(queries.get(0));
-                while (result.hasNext()) {
-                    Map<String, Object> row = result.next();
-                    ArrayList<Long> list = new ArrayList<>();
-                    list.add(Long.parseLong(String.valueOf(row.get("n.id"))));
-                    list.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
-                    Iterable<Label> labels = databaseService.getNodeById(list.get(0)).getLabels();
-                    String label = labels.toString();
-                    labels = databaseService.getNodeById(list.get(1)).getLabels();
-                    label += labels.toString();
-                    if (!featureSoln.containsKey(label)) {
-                        featurePatternSet1.add(label);
-                        Feature feature = new Feature();
-                        feature.graphIDs.add(i);
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n.id"))));
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
-                        // getting all the labels
-                        for (Long nodeID : feature.nodes)
-                            feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
-
-                        feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                        featureSoln.put(label, feature);
-                    }
-                    else {
-                        featureSoln.get(label).graphIDs.add(i);
-                    }
-                }
-            } else if (size == 3) {
-                // for each query
-                for (String query : queries) {
-                    Result result = databaseService.execute(query);
+            try (Transaction tx = databaseService.beginTx()) {
+                if (size == 1) {
+                    Result result = databaseService.execute(queries.get(0));
                     while (result.hasNext()) {
                         Map<String, Object> row = result.next();
-                        ArrayList<Long> list = new ArrayList<>();
-                         list.add(Long.parseLong(String.valueOf(row.get("n.id"))));
-                        list.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
-                        list.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
-                        Iterable<Label> labels = databaseService.getNodeById(list.get(0)).getLabels();
-                        String label = labels.toString();
-                        labels = databaseService.getNodeById(list.get(1)).getLabels();
-                        label += labels.toString();
-                        labels = databaseService.getNodeById(list.get(2)).getLabels();
-                        label += labels.toString();
-                        Feature feature = new Feature();
-                        feature.graphIDs.add(i);
-                         feature.nodes.add(Long.parseLong(String.valueOf(row.get("n.id"))));
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
-                        // getting all the labels
-                        for (Long nodeID : feature.nodes)
-                            feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
-                        if (query.equals("match(n)-->(n1)-->(n2) where n.id <> n2.id return n.id, n1.id, n2.id")) {
-                            label += "n,n1,n2";
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
-                        } else {
-                            label += "n,n1,n,n2";
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
-                        }
-                        if (!featureSoln.containsKey(label)) {
-                            featurePatternSet1.add(label);
-                            featureSoln.put(label, feature);
+                        String tempLabel = String.valueOf(row.get("(labels(n))"));
+                        tempLabel = tempLabel.substring(1, tempLabel.length() - 1);
+                        if (!featureSoln.containsKey(tempLabel)) {
+                            featurePatternSet1.add(tempLabel);
+                            Result result1 = databaseService.execute("match (n:" + tempLabel + ") return n.id limit 1");
+                            Map<String, Object> row1 = result1.next();
+                            Feature feature = new Feature();
+                            feature.graphIDs.add(i);
+                            feature.nodes.add(Long.parseLong(String.valueOf(row1.get("n.id"))));
+                            // getting all the labels
+                            for (Long nodeID : feature.nodes)
+                                feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
+                            featureSoln.put(tempLabel, feature);
                         }
                         else {
-                            featureSoln.get(label).graphIDs.add(i);
+                            featureSoln.get(tempLabel).graphIDs.add(i);
                         }
                     }
 
-                } // for each query
-            } else {
-                // for each query
-                for (String query : queries) {
-                    Result result = databaseService.execute(query);
-                    while  (result.hasNext()) {
+                } else if (size == 2) {
+                    Result result = databaseService.execute(queries.get(0));
+                    while (result.hasNext()) {
                         Map<String, Object> row = result.next();
                         ArrayList<Long> list = new ArrayList<>();
                         list.add(Long.parseLong(String.valueOf(row.get("n.id"))));
                         list.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
-                        list.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
-                        list.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
                         Iterable<Label> labels = databaseService.getNodeById(list.get(0)).getLabels();
                         String label = labels.toString();
                         labels = databaseService.getNodeById(list.get(1)).getLabels();
                         label += labels.toString();
-                        labels = databaseService.getNodeById(list.get(2)).getLabels();
-                        label += labels.toString();
-                        labels = databaseService.getNodeById(list.get(3)).getLabels();
-                        label += labels.toString();
-                        Feature feature = new Feature();
-                        feature.graphIDs.add(i);
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n.id"))));
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
-                        feature.nodes.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
-                        // getting all the labels
-                        for (Long nodeID : feature.nodes)
-                            feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
-                        if (query.equals("match(n)-->(n1)-->(n2)-->(n3) where n.id <> n3.id and n.id <> n2.id return n.id, n1.id, n2.id, n3.id")) {
-                            label += "n,n1,n2,n3";
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n2.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
-                        } else if (query.equals("match(n)-->(n1), (n)-->(n2), (n)-->(n3) return n.id, n1.id, n2.id, n3.id")) {
-                            label += "n,n1,n,n2,n,n3";
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
-                        } else if (query.equals("match(n)-->(n1)-->(n2), (n)-->(n3) where n.id <> n3.id and n.id <> n2.id return n.id, n1.id, n2.id, n3.id")) {
-                            label += "n,n1,n2,n,n3";
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
-                        } else {
-                            label += "n,n1,n2,n1,n3";
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
-                            feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
-
-                        }
                         if (!featureSoln.containsKey(label)) {
                             featurePatternSet1.add(label);
+                            Feature feature = new Feature();
+                            feature.graphIDs.add(i);
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n.id"))));
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            // getting all the labels
+                            for (Long nodeID : feature.nodes)
+                                feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
+
+                            //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            else {
+                                ArrayList<Long> tempList = new ArrayList<>();
+                                tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                            }
                             featureSoln.put(label, feature);
                         }
                         else {
                             featureSoln.get(label).graphIDs.add(i);
                         }
                     }
-                } // for each query
-            }
+                } else if (size == 3) {
+                    // for each query
+                    for (String query : queries) {
+                        Result result = databaseService.execute(query);
+                        while (result.hasNext()) {
+                            Map<String, Object> row = result.next();
+                            ArrayList<Long> list = new ArrayList<>();
+                            list.add(Long.parseLong(String.valueOf(row.get("n.id"))));
+                            list.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            list.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                            Iterable<Label> labels = databaseService.getNodeById(list.get(0)).getLabels();
+                            String label = labels.toString();
+                            labels = databaseService.getNodeById(list.get(1)).getLabels();
+                            label += labels.toString();
+                            labels = databaseService.getNodeById(list.get(2)).getLabels();
+                            label += labels.toString();
+                            Feature feature = new Feature();
+                            feature.graphIDs.add(i);
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n.id"))));
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                            // getting all the labels
+                            for (Long nodeID : feature.nodes)
+                                feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
+                            if (query.equals("match(n)-->(n1)-->(n2) where n.id <> n2.id return n.id, n1.id, n2.id")) {
+                                label += "n,n1,n2";
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n1.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n1.id")))).add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), tempList);
+                                }
+                                String newQuery = "match(n)-->(n1)-->(n2) where n.id <> n2.id and"  + getLabels("n", databaseService.getNodeById(list.get(0)))  + " and "
+                                        + getLabels("n1", databaseService.getNodeById(list.get(1))) + " and " + getLabels("n2", databaseService.getNodeById(list.get(2)))
+                                        + " return n.id limit 1";
 
-            tx.success();
-            tx.close();
-        }
-    }// for each graph
+                                // checking to see if the same pattern occurs in other graphs as well
+                                HashSet<Integer> otherGraphIDs = new HashSet<>();
+                                for(int j = 0; j<databaseServices.length; j++) {
+                                    if(j == i || feature.graphIDs.contains(j))
+                                        continue;
+                                    GraphDatabaseService databaseServiceTemp = databaseServices[j];
+                                    try (Transaction tx1 = databaseServiceTemp.beginTx()) {
+                                        Result result1 = databaseServiceTemp.execute(newQuery);
+                                        if(result1.hasNext())
+                                            otherGraphIDs.add(j);
+                                        tx1.success();
+                                        tx1.close();
+                                    }
+
+                                }
+                                feature.graphIDs.addAll(otherGraphIDs);
+
+
+                            } else {
+                                label += "n,n1,n,n2";
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                String newQuery = "match(n)-->(n1), (n)-->(n2) where" + getLabels("n", databaseService.getNodeById(list.get(0)))  + " and "
+                                        + getLabels("n1", databaseService.getNodeById(list.get(1))) + " and " + getLabels("n2", databaseService.getNodeById(list.get(2)))
+                                        + " return n.id limit 1";
+
+                                HashSet<Integer> otherGraphIDs = new HashSet<>();
+                                for(int j = 0; j<databaseServices.length; j++) {
+                                    if(j == i || feature.graphIDs.contains(j))
+                                        continue;
+                                    GraphDatabaseService databaseServiceTemp = databaseServices[j];
+                                    try (Transaction tx1 = databaseServiceTemp.beginTx()) {
+                                        Result result1 = databaseServiceTemp.execute(newQuery);
+                                        if(result1.hasNext())
+                                            otherGraphIDs.add(j);
+                                        tx1.success();
+                                        tx1.close();
+                                    }
+
+                                }
+                                feature.graphIDs.addAll(otherGraphIDs);
+
+                            }
+                            if (!featureSoln.containsKey(label)) {
+                                featurePatternSet1.add(label);
+                                featureSoln.put(label, feature);
+                            }
+                            else {
+                                featureSoln.get(label).graphIDs.add(i);
+                            }
+                        }
+
+                    } // for each query
+                } else {
+                    // for each query
+                    for (String query : queries) {
+                        Result result = databaseService.execute(query);
+                        while  (result.hasNext()) {
+                            Map<String, Object> row = result.next();
+                            ArrayList<Long> list = new ArrayList<>();
+                            list.add(Long.parseLong(String.valueOf(row.get("n.id"))));
+                            list.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            list.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                            list.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                            Iterable<Label> labels = databaseService.getNodeById(list.get(0)).getLabels();
+                            String label = labels.toString();
+                            labels = databaseService.getNodeById(list.get(1)).getLabels();
+                            label += labels.toString();
+                            labels = databaseService.getNodeById(list.get(2)).getLabels();
+                            label += labels.toString();
+                            labels = databaseService.getNodeById(list.get(3)).getLabels();
+                            label += labels.toString();
+                            Feature feature = new Feature();
+                            feature.graphIDs.add(i);
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n.id"))));
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                            feature.nodes.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                            // getting all the labels
+                            for (Long nodeID : feature.nodes)
+                                feature.labels.put(nodeID, Utilities.getLabels(databaseService.getNodeById(nodeID).getLabels()));
+                            if (query.equals("match(n)-->(n1)-->(n2)-->(n3) where n.id <> n3.id and n.id <> n2.id return n.id, n1.id, n2.id, n3.id")) {
+                                label += "n,n1,n2,n3";
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n1.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n1.id")))).add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n2.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n2.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n2.id")))).add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n2.id"))), tempList);
+                                }
+
+                                String newQuery = "match(n)-->(n1)-->(n2)-->(n3) where n.id <> n3.id and n.id <> n2.id and " + getLabels("n", databaseService.getNodeById(list.get(0))) +
+                                        "and " + getLabels("n1", databaseService.getNodeById(list.get(1))) + " and " + getLabels("n2", databaseService.getNodeById(list.get(2)))
+                                        + "and " + getLabels("n3", databaseService.getNodeById(list.get(3))) + " return n.id";
+
+                                HashSet<Integer> otherGraphIDs = new HashSet<>();
+                                for(int j = 0; j<databaseServices.length; j++) {
+                                    if(j == i || feature.graphIDs.contains(j))
+                                        continue;
+                                    GraphDatabaseService databaseServiceTemp = databaseServices[j];
+                                    try (Transaction tx1 = databaseServiceTemp.beginTx()) {
+                                        Result result1 = databaseServiceTemp.execute(newQuery);
+                                        if(result1.hasNext())
+                                            otherGraphIDs.add(j);
+                                        tx1.success();
+                                        tx1.close();
+                                    }
+
+                                }
+                                feature.graphIDs.addAll(otherGraphIDs);
+
+                            } else if (query.equals("match(n)-->(n1), (n)-->(n2), (n)-->(n3) return n.id, n1.id, n2.id, n3.id")) {
+                                label += "n,n1,n,n2,n,n3";
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+
+                                String newQuery = "match(n)-->(n1), (n)-->(n2), (n)-->(n3) where "+ getLabels("n", databaseService.getNodeById(list.get(0))) +
+                                        "and " + getLabels("n1", databaseService.getNodeById(list.get(1))) + " and " + getLabels("n2", databaseService.getNodeById(list.get(2)))
+                                        + "and " + getLabels("n3", databaseService.getNodeById(list.get(3))) + " return n.id";
+
+                                HashSet<Integer> otherGraphIDs = new HashSet<>();
+                                for(int j = 0; j<databaseServices.length; j++) {
+                                    if(j == i || feature.graphIDs.contains(j))
+                                        continue;
+                                    GraphDatabaseService databaseServiceTemp = databaseServices[j];
+                                    try (Transaction tx1 = databaseServiceTemp.beginTx()) {
+                                        Result result1 = databaseServiceTemp.execute(newQuery);
+                                        if(result1.hasNext())
+                                            otherGraphIDs.add(j);
+                                        tx1.success();
+                                        tx1.close();
+                                    }
+
+                                }
+                                feature.graphIDs.addAll(otherGraphIDs);
+
+                            } else if (query.equals("match(n)-->(n1)-->(n2), (n)-->(n3) where n.id <> n3.id and n.id <> n2.id return n.id, n1.id, n2.id, n3.id")) {
+                                label += "n,n1,n2,n,n3";
+
+                                // feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n1.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n1.id")))).add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), tempList);
+                                }
+
+
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
+
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+
+                                String newQuery = "match(n)-->(n1)-->(n2), (n)-->(n3) where n.id <> n3.id and n.id <> n2.id and "+ getLabels("n", databaseService.getNodeById(list.get(0))) +
+                                        "and " + getLabels("n1", databaseService.getNodeById(list.get(1))) + " and " + getLabels("n2", databaseService.getNodeById(list.get(2)))
+                                        + "and " + getLabels("n3", databaseService.getNodeById(list.get(3))) + " return n.id";
+
+                                HashSet<Integer> otherGraphIDs = new HashSet<>();
+                                for(int j = 0; j<databaseServices.length; j++) {
+                                    if(j == i || feature.graphIDs.contains(j))
+                                        continue;
+                                    GraphDatabaseService databaseServiceTemp = databaseServices[j];
+                                    try (Transaction tx1 = databaseServiceTemp.beginTx()) {
+                                        Result result1 = databaseServiceTemp.execute(newQuery);
+                                        if(result1.hasNext())
+                                            otherGraphIDs.add(j);
+                                        tx1.success();
+                                        tx1.close();
+                                    }
+
+                                }
+                                feature.graphIDs.addAll(otherGraphIDs);
+
+                            } else {
+                                label += "n,n1,n2,n1,n3";
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n.id")))).add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n.id"))), Long.parseLong(String.valueOf(row.get("n1.id"))));
+                                if(feature.edges.containsKey(Long.parseLong(String.valueOf(row.get("n1.id")))))
+                                    feature.edges.get(Long.parseLong(String.valueOf(row.get("n1.id")))).add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                else {
+                                    ArrayList<Long> tempList = new ArrayList<>();
+                                    tempList.add(Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                    feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), tempList);
+                                }
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n2.id"))));
+                                feature.edges.get(Long.parseLong(String.valueOf(row.get("n1.id")))).add(Long.parseLong(String.valueOf(row.get("n3.id"))));
+                                //feature.edges.put(Long.parseLong(String.valueOf(row.get("n1.id"))), Long.parseLong(String.valueOf(row.get("n3.id"))));
+
+                                String newQuery = "match(n)-->(n1), (n1)-->(n2), (n1)-->(n3) where "+ getLabels("n", databaseService.getNodeById(list.get(0))) +
+                                        "and " + getLabels("n1", databaseService.getNodeById(list.get(1))) + " and " + getLabels("n2", databaseService.getNodeById(list.get(2)))
+                                        + "and " + getLabels("n3", databaseService.getNodeById(list.get(3))) + " return n.id";
+
+                                HashSet<Integer> otherGraphIDs = new HashSet<>();
+                                for(int j = 0; j<databaseServices.length; j++) {
+                                    if(j == i || feature.graphIDs.contains(j))
+                                        continue;
+                                    GraphDatabaseService databaseServiceTemp = databaseServices[j];
+                                    try (Transaction tx1 = databaseServiceTemp.beginTx()) {
+                                        Result result1 = databaseServiceTemp.execute(newQuery);
+                                        if(result1.hasNext())
+                                            otherGraphIDs.add(j);
+                                        tx1.success();
+                                        tx1.close();
+                                    }
+
+                                }
+                                feature.graphIDs.addAll(otherGraphIDs);
+                            }
+                            if (!featureSoln.containsKey(label)) {
+                                featurePatternSet1.add(label);
+                                featureSoln.put(label, feature);
+                            }
+                            else {
+                                featureSoln.get(label).graphIDs.add(i);
+                            }
+                        }
+                    } // for each query
+                }
+
+                tx.success();
+                tx.close();
+            }
+        }// for each graph
 
 
         return featureSoln;
     }
 
 
-    public static String getLabels(Node n)  {
+    public static String getLabels(String nodeRepresentation,Node n)  {
         StringBuilder sb = new StringBuilder();
         Iterable<Label> labels = n.getLabels();
         for(Label l: labels)
-            sb.append(" n:" + l.toString() + " or");
+            sb.append(" " + nodeRepresentation + ":" + l.toString() + " or");
         sb.setLength(sb.length() - 3);
         return sb.toString();
     }

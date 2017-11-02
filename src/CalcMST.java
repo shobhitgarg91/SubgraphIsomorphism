@@ -15,7 +15,7 @@ import java.util.*;
  * Created by shobhitgarg on 9/15/17.
  */
 public class CalcMST {
-    static int index = 0;
+    int index = 0;
     ArrayList<Relationship> P = new ArrayList<>();
     ArrayList<Relationship> et = new ArrayList<>();
     HashSet<Relationship> removed = new HashSet<>();
@@ -64,7 +64,7 @@ public class CalcMST {
                 nodeIDsInVt.setLength(nodeIDsInVt.length() - 1);
                 nodeIDsInVt.append("]");
 
-                result = databaseServiceQuery.execute("match(n)-[r1]->(n1) where n.id in " + nodeIDsInVt.toString() + " and not n1.id in " + nodeIDsInVt.toString() + " return r1");
+                result = databaseServiceQuery.execute("match(n)-[r1]-(n1) where n.id in " + nodeIDsInVt.toString() + " and not n1.id in " + nodeIDsInVt.toString() + " return r1");
                 while (result.hasNext()) {
                     row = result.next();
                     Relationship edge = (Relationship) row.get("r1");
@@ -75,10 +75,18 @@ public class CalcMST {
 
                 e = selectSpanningEdge1(P, vt, databaseServiceQuery);
                 et.add(e);
-                map.put((int) e.getEndNode().getProperty("id"), Utilities.insertNode(inserter, e.getEndNode(), map.get((int)e.getStartNode().getProperty("id")), index ++));
+                if(map.containsKey((int)e.getStartNode().getProperty("id"))) {
+                    map.put((int) e.getEndNode().getProperty("id"), Utilities.insertNode(inserter, e.getEndNode(), map.get((int) e.getStartNode().getProperty("id")), index));
+                    vt.add(e.getEndNode());
+                }
+                else {
+                    map.put((int) e.getStartNode().getProperty("id"), Utilities.insertNode(inserter, e.getStartNode(), map.get((int) e.getEndNode().getProperty("id")), index));
+                    vt.add(e.getStartNode());
+                }
+                index ++;
                 inserter.createRelationship(map.get((int)e.getStartNode().getProperty("id")), map.get((int)e.getEndNode().getProperty("id")), RelationshipType.withName("Parent"), null);
 
-                vt.add(e.getEndNode());
+
 
                 // checking for edges that are that have both nodes in vt
                 nodeIDsInVt = new StringBuilder("[");
@@ -152,6 +160,9 @@ public class CalcMST {
         }
         catch (Exception e) {
             System.out.println(e.toString());
+        }
+        if(databaseServiceSeq == null)  {
+            System.out.println("Error");
         }
         return databaseServiceSeq;
     }

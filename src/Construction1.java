@@ -145,7 +145,7 @@ public class Construction1 {
                             // initial prep for qi framework
                             ArrayList<Integer> soln = new ArrayList<>();
                             QIFramework qiFramework = new QIFramework(feature, root, graphDatabaseServices, soln );
-                            if(soln.size()>0)   {
+                            if(qiFramework.databaseServiceSeq!= null)   {
                                 // if size == 3
                                 GraphDatabaseService databaseService = qiFramework.databaseServiceSeq;
                                 try(Transaction tx = databaseService.beginTx()) {
@@ -172,7 +172,7 @@ public class Construction1 {
                                             fnode.children.add(newNode);
                                         }
                                         else
-                                            fnode1.graphIDs.addAll(soln);
+                                            fnode1.graphIDs.addAll(feature.graphIDs);
                                     }
                                     else {
                                         fnode = getChildFeatureNodeWithLabels(fnode, labels3);
@@ -191,7 +191,7 @@ public class Construction1 {
                                             fnode.children.add(newNode);
                                         }
                                         else
-                                            fnode1.graphIDs.addAll(soln);
+                                            fnode1.graphIDs.addAll(feature.graphIDs);
                                     }
 
                                     tx.success();
@@ -199,9 +199,7 @@ public class Construction1 {
                                 }
 
                             }
-                            for(int solnn: soln)
-                                System.out.println(solnn);
-                            System.out.println("Found");
+
 
                         } // for each feature
 

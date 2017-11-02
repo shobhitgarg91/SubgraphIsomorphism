@@ -19,6 +19,6 @@ public class Feature {
 
     ArrayList<Long> nodes = new ArrayList<>();
     HashMap<Long, HashSet<Label>> labels = new HashMap<>();
-    HashMap<Long, Long> edges = new HashMap<>();
+    HashMap<Long, ArrayList<Long>> edges = new HashMap<>();
     HashSet<Integer> graphIDs = new HashSet<>();
 }
